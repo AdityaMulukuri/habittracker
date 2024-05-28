@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make it look green! </title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f6f8fa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .calendar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .day {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .no-data {
+            background-color: #ebedf0;
+        }
+
+        .success {
+            background-color: #c6e48b;
+        }
+
+        .partial-success {
+            background-color: #7bc96f;
+        }
+
+        .failure {
+            background-color: #d1d5da;
+        }
+
+        .day-info {
+            display: none;
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .day:hover .day-info {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Habit Tracker</h1>
+        <div>
+            <input type="text" id="goalInput" placeholder="Enter your goal">
+            <button id="addGoalBtn">Add Goal</button>
+        </div>
+        <div id="goalsContainer"></div>
+    </div>
+
+    <script>
+        const goalInput = document.getElementById('goalInput');
+        const addGoalBtn = document.getElementById('addGoalBtn');
+        const goalsContainer = document.getElementById('goalsContainer');
+
+        let habits = JSON.parse(localStorage.getItem('habits')) || {};
+        let goals = JSON.parse(localStorage.getItem('goals')) || [];
+
+        function renderGoals() {
+            goalsContainer.innerHTML = '';
+            goals.forEach(goal => {
+                const goalEl = document.createElement('div');
+                const goalHeader = document.createElement('div');
+                goalHeader.className = 'goal-header';
+
+                const goalTitle = document.createElement('h2');
+                goalTitle.textContent = goal;
+
+                const deleteGoalBtn = document.createElement('button');
+                deleteGoalBtn.textContent = 'Delete';
+                deleteGoalBtn.addEventListener('click', () => {
+                    if (confirm(`Are you sure you want to delete the goal: "${goal}"`)) {
+                        goals = goals.filter(g => g !== goal);
+                        localStorage.setItem('goals', JSON.stringify(goals));
+                        const goalKeys = Object.keys(habits).filter(key => key.startsWith(`${goal}-`));
+                        goalKeys.forEach(key => delete habits[key]);
+                        localStorage.setItem('habits', JSON.stringify(habits));
+                        renderGoals();
+                    }
+                });
+
+                const monthSelect = document.createElement('select');
+                monthSelect.addEventListener('change', () => {
+                    renderCalendar(goal, calendarContainer, parseInt(monthSelect.value));
+                });
+
+                const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                months.forEach((month, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = month;
+                    monthSelect.appendChild(option);
+                });
+
+                goalHeader.appendChild(goalTitle);
+                goalHeader.appendChild(monthSelect);
+                goalHeader.appendChild(deleteGoalBtn);
+                goalEl.appendChild(goalHeader);
+
+                const calendarContainer = document.createElement('div');
+                calendarContainer.className = 'calendar';
+                goalEl.appendChild(calendarContainer);
+
+                renderCalendar(goal, calendarContainer, new Date().getMonth());
+
+                goalsContainer.appendChild(goalEl);
+            });
+        }
+
+        function renderCalendar(goal, calendarContainer, month) {
+            calendarContainer.innerHTML = '';
+            const today = new Date();
+            const year = today.getFullYear();
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayEl = document.createElement('div');
+                dayEl.className = 'day';
+
+                const dayInfo = document.createElement('div');
+                dayInfo.className = 'day-info';
+                const date = new Date(year, month, day);
+                const options = { weekday: 'long', month: 'long', day: 'numeric' };
+                dayInfo.textContent = date.toLocaleDateString('en-US', options);
+                dayEl.appendChild(dayInfo);
+
+                const goalKey = `${goal}-${dateString}`;
+                if (habits[goalKey]) {
+                    dayEl.classList.add(habits[goalKey]);
+                } else {
+                    dayEl.classList.add('no-data');
+                }
+
+                dayEl.addEventListener('click', () => {
+                    const currentStatus = habits[goalKey] || 'no-data';
+                    let newStatus = '';
+
+                    switch (currentStatus) {
+                        case 'no-data':
+                            newStatus = 'success';
+                            break;
+                        case 'success':
+                            newStatus = 'partial-success';
+                            break;
+                        case 'partial-success':
+                            newStatus = 'failure';
+                            break;
+                        case 'failure':
+                            newStatus = 'success';
+                            break;
+                    }
+
+                    habits[goalKey] = newStatus;
+                    localStorage.setItem('habits', JSON.stringify(habits));
+                    renderCalendar(goal, calendarContainer, month);
+                });
+
+                calendarContainer.appendChild(dayEl);
+            }
+        }
+
+        goalInput.addEventListener('input', () => {
+            const goal = goalInput.value.trim();
+            if (goal && !goals.includes(goal)) {
+                addGoalBtn.disabled = false;
+            } else {
+                addGoalBtn.disabled = true;
+            }
+        });
+
+        addGoalBtn.addEventListener('click', () => {
+            const goal = goalInput.value.trim();
+            if (goal) {
+                goals.push(goal);
+                localStorage.setItem('goals', JSON.stringify(goals));
+                goalInput.value = '';
+                addGoalBtn.disabled = true;
+                renderGoals();
+            }
+        });
+
+        renderGoals();
+    </script>
+</body>
+</html>
